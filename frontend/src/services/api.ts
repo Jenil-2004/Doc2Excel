@@ -61,6 +61,11 @@ export const JobService = {
 
   updateMapping: async (jobId: string, mappings: FieldMapping[]): Promise<void> => {
     await api.post(`/jobs/${jobId}/mapping`, { mappings });
+  },
+
+  autoMapJob: async (jobId: string): Promise<{ mappings: FieldMapping[] }> => {
+    const response = await api.post(`/jobs/${jobId}/auto-map`);
+    return response.data;
   }
 };
 

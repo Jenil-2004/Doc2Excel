@@ -63,18 +63,39 @@ export const Review: React.FC = () => {
 
   // 2. Fetch selected document extracted details
   useEffect(() => {
-    if (!selectedDocId) return;
+    if (!selectedDocId || job?.status !== 'completed') return;
     DocumentService.getDocumentData(selectedDocId)
-      .then(res => setExtractedData(res))
-      .catch(err => console.error(err));
-  }, [selectedDocId]);
+      .then(res => {
+        setExtractedData(res);
+        setErrorMsg('');
+      })
+      .catch(err => {
+        setErrorMsg(err.response?.data?.error || 'Failed to load extracted document data.');
+      });
+  }, [selectedDocId, job?.status]);
 
-  const handleAutoMap = () => {
+  useEffect(() => {
+    if (job?.status === 'failed') {
+      setErrorMsg(job.message || 'Document extraction failed.');
+    }
+  }, [job?.message, job?.status]);
+
+  const [isAutoMapping, setIsAutoMapping] = useState(false);
+
+  const handleAutoMap = async () => {
     if (!job) return;
-    // trigger auto map
-    JobService.updateMapping(job.id, mappings).then(() => {
-      JobService.getJob(job.id).then(res => setMappings(res.mappings));
-    });
+    setIsAutoMapping(true);
+    setErrorMsg('');
+    try {
+      const res = await JobService.autoMapJob(job.id);
+      if (res && res.mappings) {
+        setMappings(res.mappings);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.error || 'Failed to auto-map fields.');
+    } finally {
+      setIsAutoMapping(false);
+    }
   };
 
   const handleGenerateExcel = async () => {
@@ -223,3 +244,5 @@ export const Review: React.FC = () => {
     </div>
   );
 };
+
+export default Review;

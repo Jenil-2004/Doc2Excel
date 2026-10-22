@@ -46,8 +46,16 @@ class ExcelService:
                 "number_format": sample_cell.number_format
             }
 
-        # Clear sample rows if any exist below header
-        if sheet.max_row > header_row:
+        # Check if there are template footer rows below header (e.g. Average Strength, Reviewed by, Signatures)
+        footer_start_row = None
+        for r in range(header_row + 1, sheet.max_row + 1):
+            cell_texts = [str(c.value).strip().lower() for c in sheet[r] if c.value is not None and str(c.value).strip()]
+            if any(any(k in txt for k in ["average", "reviewed", "lab tech", "entered by", "signature", "authorized"]) for txt in cell_texts):
+                footer_start_row = r
+                break
+
+        # Only clear sample rows if no footer exists below header
+        if footer_start_row is None and sheet.max_row > header_row:
             sheet.delete_rows(header_row + 1, sheet.max_row - header_row)
 
         current_row = header_row + 1

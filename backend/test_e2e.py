@@ -12,8 +12,10 @@ def test_full_flow():
     print("  Testing End-to-End Extraction Flow   ")
     print("========================================")
 
-    sample_img = r"c:\CivilFileExcelOCR\samples\sample_construction_bill.png"
-    sample_template = r"c:\CivilFileExcelOCR\samples\Civil_Construction_Template.xlsx"
+    from config import Config
+    project_root = Config.BASE_DIR.parent
+    sample_img = str(project_root / "samples" / "sample_construction_bill.png")
+    sample_template = str(project_root / "samples" / "Civil_Construction_Template.xlsx")
 
     # 1. Inspect Template
     print("\n[Step 1] Inspecting Excel Template...")

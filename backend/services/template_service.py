@@ -39,24 +39,37 @@ class TemplateService:
         - Doesn't consist purely of single title cell
         """
         best_row = 1
-        max_string_cols = 0
-        row_fields_map = {}
+        best_score = -1
 
-        for r in range(1, min(sheet.max_row + 1, 15)):
-            row_cells = [cell for cell in sheet[r]]
-            string_cells = []
-            
-            for c_idx, cell in enumerate(row_cells, start=1):
-                val = cell.value
-                if val is not None and str(val).strip():
-                    string_cells.append((c_idx, str(val).strip()))
-            
-            if len(string_cells) > max_string_cols:
-                # If row only has 1 cell merged across, it might be a Title banner
-                if len(string_cells) == 1 and sheet.max_column > 2:
+        for r in range(1, min(sheet.max_row + 1, 50)):
+            cells = [cell for cell in sheet[r] if cell.value is not None]
+            if not cells:
+                continue
+
+            str_cells = []
+            text_header_words = 0
+            num_cells = 0
+
+            for cell in cells:
+                val = str(cell.value).strip()
+                if not val:
                     continue
-                max_string_cols = len(string_cells)
-                best_row = r
+                # If cell is purely numeric or simple date/time numbers without alphabets
+                if re.match(r'^[\d\.\,\-\/\:\$\%]+$', val) and not re.search(r'[a-zA-Z]', val):
+                    num_cells += 1
+                else:
+                    str_cells.append(val)
+                    if re.search(r'\b(no|num|date|item|desc|particular|qty|rate|price|amount|unit|total|load|psi|strength|type|sample|fracture|area|diameter|time|age|comment|spec|class|supplier|vendor|invoice|bill)\b', val, re.I):
+                        text_header_words += 1
+
+            if len(str_cells) >= 2:
+                score = (len(str_cells) * 2) + (text_header_words * 3) - (num_cells * 2)
+                # Penalize schematic rows that are diagrams rather than tabular headers
+                if any('schematic' in s.lower() or 'pattern' in s.lower() for s in str_cells):
+                    score -= 15
+                if score > best_score:
+                    best_score = score
+                    best_row = r
 
         # Extract fields from the best header row
         fields: List[FieldSchema] = []

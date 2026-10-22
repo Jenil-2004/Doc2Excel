@@ -1,4 +1,5 @@
 import os
+import shutil
 from flask import Flask, jsonify
 from flask_cors import CORS
 from config import Config
@@ -26,11 +27,12 @@ def create_app():
 
     @app.route("/api/health", methods=["GET"])
     def health_check():
-        tesseract_exists = os.path.exists(Config.TESSERACT_CMD)
+        tesseract_exists = os.path.isfile(Config.TESSERACT_CMD) or bool(shutil.which(Config.TESSERACT_CMD))
         return jsonify({
             "status": "online",
             "service": "Document2Excel AI Engine",
             "tesseract_available": tesseract_exists,
+            "gemini_available": bool(Config.GEMINI_API_KEY),
             "version": "1.0.0"
         })
 

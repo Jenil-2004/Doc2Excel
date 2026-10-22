@@ -15,6 +15,7 @@ backend/processing/*
 !backend/processing/.gitkeep
 backend/output/*
 !backend/output/.gitkeep
+backend/temp/*
 backend/data.db
 
 # Environment variables
