@@ -1,0 +1,21 @@
+# Virtual environments
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+portable_node/
+dist/
+
+# Uploads & Outputs
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/processing/*
+!backend/processing/.gitkeep
+backend/output/*
+!backend/output/.gitkeep
+backend/data.db
+
+# Environment variables
+.env
