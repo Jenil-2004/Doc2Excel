@@ -40,7 +40,7 @@ export const Templates: React.FC = () => {
         subtitle="Manage custom target Excel schemas for construction, purchases, medical, or food bills"
       />
 
-      <div className="p-8 max-w-6xl space-y-8 flex-1">
+      <div className="flex-1 w-full min-w-0 p-6 lg:p-8 space-y-8">
         {/* Upload New Template */}
         <div>
           <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">

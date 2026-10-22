@@ -21,7 +21,7 @@ export const HistoryPage: React.FC = () => {
         subtitle="Review previous batch processing jobs, document OCR logs, and generated Excel files"
       />
 
-      <div className="p-8 max-w-6xl space-y-6 flex-1">
+      <div className="flex-1 w-full min-w-0 p-6 lg:p-8 space-y-6">
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-base font-bold text-slate-800">Processing Jobs History</h3>

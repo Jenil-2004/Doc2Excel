@@ -10,9 +10,9 @@ import { HistoryPage } from './pages/History';
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <div className="flex min-h-screen bg-slate-50">
+      <div className="flex min-h-screen w-full bg-slate-50">
         <Sidebar />
-        <main className="flex-1 ml-64 min-w-0">
+        <main className="flex-1 min-w-0 w-full ml-64">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/upload" element={<Upload />} />

@@ -47,9 +47,9 @@ export const Dashboard: React.FC = () => {
         }
       />
 
-      <div className="p-8 space-y-8 flex-1 max-w-7xl">
+      <div className="flex-1 w-full min-w-0 p-6 lg:p-8 space-y-8">
         {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between text-slate-500 mb-3">
               <span className="text-xs font-bold uppercase tracking-wider">Bills Processed</span>
@@ -88,8 +88,8 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Feature Banner */}
-        <div className="bg-gradient-to-r from-sky-900 via-indigo-900 to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-          <div className="relative z-10 max-w-2xl space-y-3">
+        <div className="w-full bg-gradient-to-r from-sky-900 via-indigo-900 to-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="relative z-10 max-w-3xl space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-sky-200 text-xs font-semibold backdrop-blur-sm">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Universal Template-Driven Architecture
             </div>

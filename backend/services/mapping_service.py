@@ -15,20 +15,20 @@ class MappingService:
     """
 
     FIELD_SYNONYMS = {
-        # Vendor / Supplier
-        "vendor": ["vendor", "supplier", "merchant", "store", "company", "contractor", "shop", "seller", "provider", "hospital", "hotel", "restaurant"],
-        "invoice_number": ["invoice number", "invoice no", "inv no", "bill no", "bill number", "receipt no", "receipt number", "voucher no", "ref no", "order id", "check #"],
-        "date": ["date", "bill date", "invoice date", "transaction date", "dt", "billing date", "dated"],
-        "gstin": ["gstin", "gst no", "gst number", "tax id", "tin", "vat no", "pan"],
-        "total_amount": ["total", "grand total", "net amount", "total amount", "amount payable", "final amount", "balance", "total bill"],
-        "subtotal": ["subtotal", "taxable value", "taxable amount", "basic amount"],
-        
         # Line item fields
-        "description": ["item", "description", "product", "particulars", "service", "item name", "medicine", "material", "work description", "room", "details"],
+        "description": ["item name", "item", "description", "product", "particulars", "service", "medicine", "material", "work description", "room", "details"],
         "quantity": ["qty", "quantity", "count", "units", "nights", "days", "hours", "nos", "volume"],
         "unit": ["unit", "uom", "measuring unit", "unit of measure"],
-        "rate": ["rate", "price", "unit price", "cost", "unit rate", "tariff", "item rate"],
-        "amount": ["amount", "line total", "item total", "net rate", "total price", "val", "cost amount"]
+        "rate": ["unit price", "rate", "price", "cost", "unit rate", "tariff", "item rate"],
+        "amount": ["total amount", "line total", "item total", "net rate", "total price", "val", "cost amount", "amount", "total"],
+
+        # Header fields
+        "vendor": ["supplier", "vendor", "merchant", "store", "company", "contractor", "shop", "seller", "provider", "hospital", "hotel", "restaurant"],
+        "invoice_number": ["bill no", "bill number", "invoice number", "invoice no", "inv no", "receipt no", "receipt number", "voucher no", "ref no", "order id", "check #"],
+        "date": ["bill date", "date", "invoice date", "transaction date", "dt", "billing date", "dated"],
+        "gstin": ["gstin", "gst no", "gst number", "tax id", "tin", "vat no", "pan"],
+        "total_amount": ["grand total", "net amount", "total payable", "amount payable", "final amount", "balance", "total bill"],
+        "subtotal": ["subtotal", "taxable value", "taxable amount", "basic amount"]
     }
 
     @staticmethod
@@ -58,6 +58,9 @@ class MappingService:
             "source_filename": ("meta", "source_filename")
         }
 
+        used_extracted = set()
+
+        # Phase 1: High confidence matches
         for excel_col in template_fields:
             col_norm = MappingService._normalize_string(excel_col)
             best_match = None
@@ -80,18 +83,18 @@ class MappingService:
                     syn_norm = MappingService._normalize_string(syn)
                     if col_norm == syn_norm:
                         best_match = field_key
-                        best_score = 0.98
+                        best_score = 0.99
                         source_type = available_extracted[field_key][0]
                         break
                     
                     # Fuzzy match
                     ratio = fuzz.ratio(col_norm, syn_norm) / 100.0
-                    if ratio > 0.80 and ratio > best_score:
+                    if ratio > 0.82 and ratio > best_score:
                         best_score = ratio
                         best_match = field_key
                         source_type = available_extracted[field_key][0]
 
-                if best_score == 1.0:
+                if best_score >= 0.99:
                     break
 
             if best_match and best_score >= 0.70:

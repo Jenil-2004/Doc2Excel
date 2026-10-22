@@ -16,42 +16,32 @@ class TesseractExtractor(DocumentExtractor):
 
     def _preprocess_image(self, image_path: str) -> np.ndarray:
         """
-        State of the art image preprocessing:
-        1. Grayscale
-        2. Noise reduction via bilateral filter
-        3. Adaptive thresholding / Otsu thresholding
-        4. Deskewing
+        High accuracy image preprocessing for OCR:
+        1. 2x cubic upscaling for crisp character boundary distinction
+        2. Grayscale & contrast enhancement
+        3. Bilateral filter & clean Otsu binarization
         """
         img = cv2.imread(image_path)
         if img is None:
             raise ValueError(f"Could not read image file at {image_path}")
 
-        # Grayscale
+        h, w = img.shape[:2]
+        # Upscale if image is medium/small to ensure high OCR fidelity
+        if w < 1600:
+            scale_factor = 2.0
+            img = cv2.resize(img, (int(w * scale_factor), int(h * scale_factor)), interpolation=cv2.INTER_CUBIC)
+
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # Contrast enhancement (CLAHE)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         contrast_enhanced = clahe.apply(gray)
 
-        # Noise reduction while preserving edges
-        denoised = cv2.bilateralFilter(contrast_enhanced, 9, 75, 75)
+        # Noise reduction
+        denoised = cv2.bilateralFilter(contrast_enhanced, 5, 50, 50)
 
         # Thresholding - Otsu
         _, thresh = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        # Deskew detection
-        coords = np.column_stack(np.where(thresh == 0))
-        if len(coords) > 50:
-            angle = cv2.minAreaRect(coords)[-1]
-            if angle < -45:
-                angle = -(90 + angle)
-            else:
-                angle = -angle
-            if abs(angle) > 0.5 and abs(angle) < 45:
-                (h, w) = thresh.shape[:2]
-                center = (w // 2, h // 2)
-                M = cv2.getRotationMatrix2D(center, angle, 1.0)
-                thresh = cv2.warpAffine(thresh, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
         return thresh
 
@@ -82,9 +72,10 @@ class TesseractExtractor(DocumentExtractor):
         # Handle Images (or PDFs via rasterized fallback)
         try:
             processed_img = self._preprocess_image(file_path)
+            custom_config = r'--oem 3 --psm 6'
             
             # Extract detailed data with confidence
-            data = pytesseract.image_to_data(processed_img, output_type=pytesseract.Output.DICT)
+            data = pytesseract.image_to_data(processed_img, config=custom_config, output_type=pytesseract.Output.DICT)
             
             blocks = []
             valid_confidences = []

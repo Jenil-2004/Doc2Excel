@@ -113,7 +113,7 @@ export const Review: React.FC = () => {
         subtitle={`Stage: ${job.stage || 'In Progress'} · Progress: ${job.progress}%`}
       />
 
-      <div className="p-8 max-w-7xl space-y-8 flex-1">
+      <div className="flex-1 w-full min-w-0 p-6 lg:p-8 space-y-8">
         {/* Processing Stepper */}
         <ProcessingStepper
           currentStep={
@@ -151,33 +151,6 @@ export const Review: React.FC = () => {
           </div>
         )}
 
-        {/* If Excel Generated: Show Interactive Preview */}
-        {generatedResult && (
-          <div className="space-y-4">
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span className="text-xs font-bold text-emerald-900">
-                  Excel Workbook Successfully Generated with Layout & Styles Preserved!
-                </span>
-              </div>
-              <a
-                href={ExcelService.getDownloadUrl(generatedResult.file_id)}
-                download={generatedResult.filename}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
-              >
-                Download (.xlsx)
-              </a>
-            </div>
-
-            <ExcelPreview
-              fileId={generatedResult.file_id}
-              filename={generatedResult.filename}
-              initialData={generatedResult.preview_data}
-            />
-          </div>
-        )}
-
         {/* Document Selector Pills (If Multiple Uploaded) */}
         {job.documents.length > 1 && (
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -200,7 +173,7 @@ export const Review: React.FC = () => {
           </div>
         )}
 
-        {/* Review & Edit Screen */}
+        {/* 1. Review & Edit Screen */}
         {extractedData && (
           <ExtractionReview
             documentId={selectedDocId}
@@ -209,7 +182,7 @@ export const Review: React.FC = () => {
           />
         )}
 
-        {/* Field Mapping Section */}
+        {/* 2. Field Mapping Section */}
         {mappings.length > 0 && (
           <MappingTable
             mappings={mappings}
@@ -218,6 +191,33 @@ export const Review: React.FC = () => {
             onConfirm={handleGenerateExcel}
             isGenerating={isGenerating}
           />
+        )}
+
+        {/* 3. Generated Excel Workbook Section */}
+        {generatedResult && (
+          <div className="space-y-4 pt-4 border-t border-slate-200">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span className="text-xs font-bold text-emerald-900">
+                  Excel Workbook Successfully Generated with Layout & Styles Preserved!
+                </span>
+              </div>
+              <a
+                href={ExcelService.getDownloadUrl(generatedResult.file_id)}
+                download={generatedResult.filename}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                Download (.xlsx)
+              </a>
+            </div>
+
+            <ExcelPreview
+              fileId={generatedResult.file_id}
+              filename={generatedResult.filename}
+              initialData={generatedResult.preview_data}
+            />
+          </div>
         )}
       </div>
     </div>

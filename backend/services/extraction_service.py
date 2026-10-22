@@ -78,17 +78,19 @@ class ExtractionService:
             conf["vendor"] = 60.0
 
         # Invoice / Bill Number
+        # Look specifically for Invoice No[: ] <alphanumeric token>
         inv_match = re.search(
-            r'(?:invoice\s*(?:no|num|number|#)?|bill\s*(?:no|num|number|#)?|memo\s*no|inv\s*#)[:.\s]*([A-Za-z0-9\-\/]+)', 
+            r'(?:invoice\s*(?:no\.?|num\.?|number|#)|bill\s*(?:no\.?|num\.?|number|#)|inv\s*#)[:.\s]*([A-Za-z0-9\-_]{2,})', 
             raw_text, 
             re.I
         )
         if inv_match:
-            header["invoice_number"] = inv_match.group(1).strip()
+            cand = inv_match.group(1).strip()
+            header["invoice_number"] = cand
             conf["invoice_number"] = 95.0
         else:
-            # Fallback search for token like INV-1001 or #1234
-            tok_match = re.search(r'\b(INV-?[0-9]{3,}|#[0-9]{4,})\b', raw_text, re.I)
+            # Fallback search for token like APEX-2026-904 or INV-1001 or #1234
+            tok_match = re.search(r'\b([A-Z]{2,10}-[0-9]{3,}-[0-9]{2,}|INV-?[0-9]{3,}|#[0-9]{4,})\b', raw_text, re.I)
             if tok_match:
                 header["invoice_number"] = tok_match.group(1).strip()
                 conf["invoice_number"] = 85.0
@@ -98,12 +100,12 @@ class ExtractionService:
 
         # Date normalization
         date_match = re.search(
-            r'(?:date|dt|dated)?[:.\s]*(\b(?:\d{1,2}[-\/.]\d{1,2}[-\/.](?:\d{4}|\d{2})|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b)',
+            r'(?:date|dt|dated)?[:.\s]*(\b(?:\d{1,2}[-\/.:]\d{1,2}[-\/.:](?:\d{4}|\d{2})|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})\b)',
             raw_text,
             re.I
         )
         if date_match:
-            raw_date_str = date_match.group(1).strip()
+            raw_date_str = date_match.group(1).strip().replace(":", "/").replace(".", "/")
             normalized_date = ExtractionService._normalize_date(raw_date_str)
             header["date"] = normalized_date
             conf["date"] = 96.0
@@ -119,8 +121,8 @@ class ExtractionService:
 
         # Grand Total / Net Amount
         total_patterns = [
-            r'(?:grand\s*total|net\s*total|total\s*amount|total\s*payable|amount\s*payable|balance\s*due|final\s*amount|total)[:.\s]*(?:rs\.?|inr|\$|€|£)?\s*([\d,]+(?:\.\d{1,2})?)',
-            r'(?:total)[:.\s]*(?:rs\.?|inr|\$|€|£)?\s*([\d,]+(?:\.\d{1,2})?)'
+            r'(?:grand\s*total|net\s*total|total\s*amount|total\s*payable|amount\s*payable|balance\s*due|final\s*amount)[:.\s]*(?:rs\.?|inr|\$|€|£|fe)?\s*([\d,]+(?:\.\d{1,2})?)',
+            r'(?:total)[:.\s]*(?:rs\.?|inr|\$|€|£|fe)?\s*([\d,]+(?:\.\d{1,2})?)'
         ]
         total_val = None
         for pat in total_patterns:
@@ -179,9 +181,11 @@ class ExtractionService:
             if re.search(r'^(total|subtotal|grand total|tax|gst|cgst|sgst|discount|terms|signature|bank details)', line, re.I):
                 break
 
-            # Number regex for items: looking for numbers that could be Qty, Rate, Amount
-            # Pattern: Words followed by numbers or numbers interleaved
-            # Example: "Cement 43 Grade 10 Bags 400 4000" or "Masala Dosa 2 70 140"
+            # Detect unit position if present e.g. "Bags", "Tons", "Nos", "Kg"
+            unit_regex = r'\b(bags?|kgs?|tons?|nos?|pcs?|units?|ltrs?|mtrs?|qntl|box|strip|pack)\b'
+            unit_match = re.search(unit_regex, line, re.I)
+            detected_unit = unit_match.group(1).title() if unit_match else None
+
             tokens = line.split()
             if len(tokens) >= 2:
                 numbers = []
@@ -195,6 +199,45 @@ class ExtractionService:
                             num_indices.append(t_idx)
                         except ValueError:
                             pass
+
+                # If a unit was found, numbers before unit are qty, or last number before unit is qty
+                if unit_match and len(numbers) >= 3:
+                    # Find unit index in tokens
+                    unit_t_idx = -1
+                    for t_idx, token in enumerate(tokens):
+                        if re.search(unit_regex, token, re.I):
+                            unit_t_idx = t_idx
+                            break
+                    if unit_t_idx != -1:
+                        # Numbers after unit are rate & amount
+                        after_unit_nums = [numbers[i] for i, idx in enumerate(num_indices) if idx > unit_t_idx]
+                        before_unit_nums = [numbers[i] for i, idx in enumerate(num_indices) if idx < unit_t_idx]
+                        if before_unit_nums and len(after_unit_nums) >= 2:
+                            qty = before_unit_nums[-1]  # The number immediately before unit is quantity
+                            rate = after_unit_nums[0]
+                            amount = after_unit_nums[1]
+                            # Description is tokens up to the qty token
+                            qty_tok_idx = [idx for idx in num_indices if idx < unit_t_idx][-1]
+                            desc_clean = " ".join(tokens[:qty_tok_idx]).strip()
+                            desc_clean = re.sub(r'^\d+[\.\)]?\s*', '', desc_clean)
+
+                            if qty > 0 and rate > 0:
+                                expected_calc = qty * rate
+                                if abs(amount - expected_calc * 100) < 1.0:
+                                    amount = expected_calc
+
+                            item_data = {
+                                "description": desc_clean or f"Item {len(line_items) + 1}",
+                                "quantity": qty,
+                                "rate": rate,
+                                "amount": amount,
+                                "unit": detected_unit
+                            }
+                            line_items.append(item_data)
+                            confidences.append({
+                                "description": 92.0, "quantity": 90.0, "rate": 90.0, "amount": 92.0, "unit": 95.0
+                            })
+                            continue
 
                 if len(numbers) >= 2:
                     # Description is text before the numbers
@@ -213,6 +256,16 @@ class ExtractionService:
                         qty = numbers[0]
                         rate = numbers[1]
                         amount = numbers[2]
+                        # Fix common OCR artifact where decimal point is missed e.g. 21000.00 read as 2100000
+                        if qty > 0 and rate > 0:
+                            expected_calc = qty * rate
+                            if abs(amount - expected_calc * 100) < 1.0:
+                                amount = expected_calc
+                            elif abs(amount - expected_calc) > 1.0 and abs(expected_calc - amount) < 1000000:
+                                # If rate * qty is close and amount has trailing zeros, trust expected
+                                if str(int(amount)).startswith(str(int(expected_calc))):
+                                    amount = expected_calc
+
                         item_data = {
                             "description": desc_clean or f"Item {len(line_items) + 1}",
                             "quantity": qty,
@@ -310,10 +363,16 @@ class ExtractionService:
                 items_total += amount
 
         header_total = header.get("total_amount", 0.0)
-        if header_total > 0 and items_total > 0:
+        subtotal = header.get("subtotal", 0.0)
+
+        # Check if items_total matches subtotal (before tax)
+        if subtotal > 0 and abs(items_total - subtotal) <= 2.0:
+            # Perfectly reconciled against subtotal before tax! No warning needed.
+            pass
+        elif header_total > 0 and items_total > 0:
             if abs(header_total - items_total) > (header_total * 0.15 + 2.0):
                 warnings.append(
-                    f"Grand Total mismatch: Line items sum ({round(items_total, 2)}) differs from extracted Grand Total ({header_total}). Please review."
+                    f"Grand Total note: Line items sum is ₹{round(items_total, 2)} (tax/fees may account for difference with Grand Total ₹{header_total})."
                 )
 
         return warnings

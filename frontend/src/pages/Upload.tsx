@@ -67,7 +67,7 @@ export const Upload: React.FC = () => {
         subtitle="Step 1: Upload documents and template"
       />
 
-      <div className="p-8 max-w-6xl space-y-6 flex-1">
+      <div className="flex-1 w-full min-w-0 p-6 lg:p-8 space-y-6">
         <ProcessingStepper currentStep={1} />
 
         {errorMsg && (
