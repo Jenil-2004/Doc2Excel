@@ -20,3 +20,6 @@ backend/data.db
 
 # Environment variables
 .env
+
+# Logs
+*.log

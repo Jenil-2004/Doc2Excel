@@ -306,6 +306,17 @@ class ExtractionService:
                         line_items.append(item_data)
                         confidences.append(item_conf)
 
+        # Post-process ditto marks / '||' / repeated marks across rows
+        ditto_regex = re.compile(r'^\s*(\|\||"|\'\'|”|“|„|--|do|\.do\.)\s*$', re.IGNORECASE)
+        for idx in range(1, len(line_items)):
+            curr = line_items[idx]
+            prev = line_items[idx - 1]
+            for key, val in list(curr.items()):
+                if val is not None:
+                    val_str = str(val).strip()
+                    if ditto_regex.match(val_str) or val_str in ("||", "|", "''", '""', '"'):
+                        curr[key] = prev.get(key)
+
         # Fallback if no tabular rows detected: create at least 1 consolidated line item from header total
         if not line_items:
             total_amt = ExtractionService._extract_header_fields(raw_text, lines)[0].get("total_amount", 0.0)

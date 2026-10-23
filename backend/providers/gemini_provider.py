@@ -5,6 +5,8 @@ from typing import Dict, Any, List
 from PIL import Image
 from config import Config
 from providers.base_provider import DocumentExtractor
+from google import genai
+
 
 class GeminiExtractor(DocumentExtractor):
     def __init__(self, api_key: str = None):
@@ -14,9 +16,8 @@ class GeminiExtractor(DocumentExtractor):
 
     def _init_client(self):
         key = self.api_key or Config.GEMINI_API_KEY
-        if key:
+        if key and genai is not None:
             try:
-                from google import genai
                 self.client = genai.Client(api_key=key)
             except Exception as e:
                 print(f"Error initializing Gemini client: {e}", flush=True)
@@ -43,6 +44,10 @@ class GeminiExtractor(DocumentExtractor):
         
         prompt = """You are an expert document understanding AI. Analyze this image (which could be an invoice, bill, receipt, or a civil engineering concrete cylinder test report/inspection sheet).
 Extract all metadata and all tabular line items with high precision.
+
+CRITICAL RULE FOR DITTO MARKS / SAME VALUE SYMBOLS:
+- In handwritten or printed tables, vertical ditto marks (such as double quotation marks ", apostrophes '', double vertical bars ||, or dashes --) indicate that the cell has THE EXACT SAME VALUE AS THE CELL DIRECTLY ABOVE IT.
+- Whenever you encounter ditto marks, double bars "||", or repeat symbols in any table column (e.g. Cast Date, Date Received, Date Tested, Age, Diameter, Description, Unit, Rate, etc.), DO NOT output "||" or empty values: REPLACE IT WITH THE EXACT VALUE FROM THE PRECEDING ROW ABOVE IT.
 
 Return ONLY a valid JSON object with the following structure:
 {
@@ -87,7 +92,7 @@ Return ONLY a valid JSON object with the following structure:
 Include every row in the table. If a field is not present, use null or appropriate default. Output strictly valid JSON without markdown wrapping if possible.
 """
 
-        models_to_try = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']
+        models_to_try = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest']
         last_error = None
 
         for attempt in range(2):
@@ -107,6 +112,17 @@ Include every row in the table. If a field is not present, use null or appropria
                     header = data.get("header", {})
                     line_items = data.get("line_items", [])
                     doc_type = data.get("document_type", "Extracted Document")
+
+                    # Propagate ditto marks || / " / '' from row above if any leaked through
+                    ditto_pattern = re.compile(r'^\s*(\|\||"|\'\'|”|“|„|--|do|\.do\.)\s*$', re.IGNORECASE)
+                    for idx, item in enumerate(line_items):
+                        if idx > 0:
+                            prev_item = line_items[idx - 1]
+                            for field, val in list(item.items()):
+                                if val is not None:
+                                    val_str = str(val).strip()
+                                    if ditto_pattern.match(val_str) or val_str in ("||", "|", "''", '""', '"'):
+                                        item[field] = prev_item.get(field)
 
                     # Auto-fill cross_area = 12.566 for 4" cylinder if missing
                     for item in line_items:
